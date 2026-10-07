@@ -1,0 +1,33 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  apiServerAddress: "127.0.0.1"
+  apiServerPort: 6443
+# Disposable-lab tuning (research 2026-08-04). These target the two measured
+# CPU sinks of an "idle" cluster inside a quota-capped microVM:
+#  - etcd fsync on a dm-thin CoW disk: etcd demands fsync p99 <10ms and names
+#    slow disks its #1 instability cause. Labs are disposable, so durability
+#    buys nothing — unsafe-no-fsync is the upstream flag built for exactly this.
+#  - leader election on a single control plane: controller-manager + scheduler
+#    each write an etcd lease every ~2s to protect a failover that cannot
+#    happen with one control-plane node (true for kind-multi too: 1 CP + 2
+#    workers). profiling=false drops background pprof cost.
+kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    etcd:
+      local:
+        extraArgs:
+          unsafe-no-fsync: "true"
+    apiServer:
+      extraArgs:
+        profiling: "false"
+    controllerManager:
+      extraArgs:
+        leader-elect: "false"
+        profiling: "false"
+    scheduler:
+      extraArgs:
+        leader-elect: "false"
+        profiling: "false"
+
